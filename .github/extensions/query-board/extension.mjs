@@ -18,7 +18,7 @@ const headers = [
     "tried_at",
 ];
 const verdicts = ["効いた", "空振り", "未着手"];
-const editableFields = ["result_count", "found_good", "verdict", "tried_at"];
+const editableFields = ["result_count", "found_good", "verdict", "why", "tried_at"];
 const servers = new Map();
 
 let workspacePath;
@@ -171,7 +171,7 @@ td input, td select { width: 100%; box-sizing: border-box; }
 </tr></thead><tbody id="rows"></tbody></table></div>
 <script>
 const state = { rows: [], dirty: false };
-const editable = ["result_count", "found_good", "verdict", "tried_at"];
+const editable = ["result_count", "found_good", "verdict", "why", "tried_at"];
 const filter = document.querySelector("#filter");
 const todoFirst = document.querySelector("#todo-first");
 const status = document.querySelector("#status");
@@ -186,6 +186,14 @@ function markDirty() {
   save.disabled = false;
   setStatus("未保存の変更があります");
 }
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>\"]/g, (character) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    "\"": "&quot;",
+  }[character]));
+}
 function render() {
   const selected = filter.value;
   const visible = state.rows.filter((row) => !selected || row.verdict === selected);
@@ -193,17 +201,17 @@ function render() {
   document.querySelector("#rows").innerHTML = visible.map((row) => {
     const canEdit = row.verdict === "未着手";
     const control = (field) => {
-      if (!canEdit) return '<span class="readonly">' + (row[field] || "-") + "</span>";
-      if (field === "verdict") return '<select data-id="' + row.id + '" data-field="verdict"><option>未着手</option><option>効いた</option><option>空振り</option></select>';
-      return '<input data-id="' + row.id + '" data-field="' + field + '" value="' + String(row[field] || "").replaceAll("&", "&amp;").replaceAll('"', "&quot;") + '">';
+      if (!canEdit) return '<span class="readonly">' + escapeHtml(row[field] || "-") + "</span>";
+      if (field === "verdict") return '<select data-id="' + escapeHtml(row.id) + '" data-field="verdict"><option>未着手</option><option>効いた</option><option>空振り</option></select>';
+      return '<input data-id="' + escapeHtml(row.id) + '" data-field="' + field + '" value="' + escapeHtml(row[field]) + '">';
     };
     return '<tr class="' + (canEdit ? "todo" : "") + '">' +
-      '<td class="id">' + row.id + "</td><td>" + row.media + '</td><td class="query">' + row.query + "</td>" +
+      '<td class="id">' + escapeHtml(row.id) + "</td><td>" + escapeHtml(row.media) + '</td><td class="query">' + escapeHtml(row.query) + "</td>" +
       '<td>' + control("verdict") + "</td><td>" + control("result_count") + "</td><td>" + control("found_good") + "</td>" +
-      '<td class="why">' + row.why + "</td><td>" + control("tried_at") + "</td></tr>";
+      '<td class="why">' + control("why") + "</td><td>" + control("tried_at") + "</td></tr>";
   }).join("");
   visible.filter((row) => row.verdict === "未着手").forEach((row) => {
-    const select = document.querySelector('select[data-id="' + row.id + '"]');
+    const select = document.querySelector('select[data-id="' + escapeHtml(row.id) + '"]');
     if (select) select.value = row.verdict;
   });
   document.querySelectorAll("[data-field]").forEach((element) => element.addEventListener("change", (event) => {
