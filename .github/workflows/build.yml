@@ -1,0 +1,51 @@
+name: 検索式ライブラリ
+
+# data/queries.csv を検査し、docs/queries.md を生成する。
+# AIは使わない。依存パッケージもない。
+on:
+  push:
+    branches: [main]
+    paths: ['data/queries.csv', 'scripts/rank.py', '.github/workflows/build.yml']
+  pull_request:
+    paths: ['data/queries.csv', 'scripts/rank.py']
+  workflow_dispatch:
+
+permissions:
+  contents: write   # 生成した docs/queries.md をコミットするため
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 検査
+        if: github.event_name == 'pull_request'
+        run: python3 scripts/rank.py --check
+
+      - name: 生成
+        if: github.event_name != 'pull_request'
+        run: python3 scripts/rank.py
+
+      - name: 差分があればコミットする
+        if: github.event_name != 'pull_request'
+        run: |
+          if [ -n "$(git status --porcelain docs/queries.md)" ]; then
+            git config user.name  "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add docs/queries.md
+            git commit -m "検索式ライブラリを再生成"
+            git push
+          else
+            echo "変更なし"
+          fi
+
+      - name: サマリに出す
+        if: always()
+        run: |
+          if [ -f docs/queries.md ]; then
+            sed -n '/## サマリ/,/^## ✅/p' docs/queries.md >> $GITHUB_STEP_SUMMARY
+          fi
